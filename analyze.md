@@ -91,11 +91,11 @@ public class RpcServer implements ApplicationContextAware, InitializingBean {
 3) lengthAdjustment = 0；//添加到长度字段的补偿值
 4) initialBytesToStrip = 0。//从解码帧中第一次去除的字节数
 
-因此，rpc数据包格式为：
-     4字节标识rpc消息长度         rpc消息
-　     +++++++++++++++++++++++++++++++++++++
-     |           |                         |
-      ++++++++++++++++++++++++++++++++++++++
+因此，rpc数据包格式为： 4字节标识rpc消息长度+rpc消息
+
+    　     +++++++++++++++++++++++++++++++++++++
+         |           |                         |
+          ++++++++++++++++++++++++++++++++++++++
 https://blog.csdn.net/u010853261/article/details/55803933
 
 
