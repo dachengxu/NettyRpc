@@ -13,95 +13,78 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 
-/**
- * nio 客户端 Created by david.zhang
- */
 public class NIOClient {
-    // 通道管理器
-    private Selector selector;
+    private Selector selector;          //创建一个选择器
+    private final static int port = 8686;
+    private final static int BUF_SIZE = 1024;
+    private static ByteBuffer byteBuffer = ByteBuffer.allocate(BUF_SIZE);
 
-    /**
-     * 获得一个Socket通道，并对该通道做一些初始化的工作
-     *
-     * @param ip   连接的服务器的ip
-     * @param port 连接的服务器的端口号
-     * @throws IOException
-     */
-    public void initClient(String ip, int port) throws IOException {
-        // 获得一个Socket通道
-        SocketChannel channel = SocketChannel.open();
-        // 设置通道为非阻塞
-        channel.configureBlocking(false);
-        // 获得一个通道管理器
+    private void initClient() throws IOException {
         this.selector = Selector.open();
-        // 客户端连接服务器,其实方法执行并没有实现连接，需要在listen（）方法中调
-        // 用channel.finishConnect();才能完成连接
-        channel.connect(new InetSocketAddress(ip, port));
-        // 将通道管理器和该通道绑定，并为该通道注册SelectionKey.OP_CONNECT事件。
-        channel.register(selector, SelectionKey.OP_CONNECT);
-    }
-
-    /**
-     * 采用轮询的方式监听selector上是否有需要处理的事件，如果有，则进行处理
-     *
-     * @throws IOException
-     */
-    public void listen() throws IOException {
-        System.out.println("nio client liesten start.");
-        // 轮询访问selector
+        SocketChannel clientChannel = SocketChannel.open();
+        clientChannel.configureBlocking(false);
+        clientChannel.connect(new InetSocketAddress(port));
+        clientChannel.register(selector, SelectionKey.OP_CONNECT);
         while (true) {
-            // 当注册的事件到达时，方法返回；否则,该方法会一直阻塞
             selector.select();
-            // 获得selector中选中的项的迭代器，选中的项为注册的事件
-            Iterator<SelectionKey> it = selector.selectedKeys().iterator();
-            while (it.hasNext()) {
-                SelectionKey key = it.next();
-                // 删除已选的key,以防重复处理
-                it.remove();
-                // 连接事件发生
+            Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
+            while (iterator.hasNext()) {
+                SelectionKey key = iterator.next();
+                iterator.remove();
                 if (key.isConnectable()) {
-                    SocketChannel channel = (SocketChannel) key.channel();
-                    // 如果正在连接，则完成连接
-                    if (channel.isConnectionPending()) {
-                        channel.finishConnect();
-                    }
-                    // 设置非阻塞
-                    channel.configureBlocking(false);
-                    // 向服务器端发送信息
-                    channel.write(ByteBuffer.wrap(new String("客户端请求连接服务器端.").getBytes()));
-                    // 在和服务端连接成功之后，为了可以接收到服务端的信息，需要给通道设置读的权限。
-                    channel.register(selector, SelectionKey.OP_READ);
-                    // 获得了可读的事件
+                    System.out.println("Connectable --> " + key.channel());
+                    doConnect(key);
                 } else if (key.isReadable()) {
-                    read(key);
+                    System.out.println("Readable  --> " + key.channel());
+                    doRead(key);
                 }
             }
         }
     }
 
-    /**
-     * 处理读取服务器端发来的信息 的事件
-     *
-     * @param key
-     * @throws IOException
-     */
-    public void read(SelectionKey key) throws IOException {
-        // 服务器可读取消息:得到事件发生的Socket通道
-        SocketChannel channel = (SocketChannel) key.channel();
-        // 创建读取的缓冲区
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
-        channel.read(buffer);
-        byte[] data = buffer.array();
-        String msg = new String(data);
-        System.out.println("客户端收到服务器信息:" + msg);
-        ByteBuffer outBuffer = ByteBuffer.wrap(new String("客户端发送服务器消息: hello").getBytes());
-        channel.write(outBuffer);
+    public void doConnect(SelectionKey key) throws IOException {
+        SocketChannel clientChannel = (SocketChannel) key.channel();
+        if (clientChannel.isConnectionPending()) {
+            clientChannel.finishConnect();
+            System.out.println("Connectable --> " + clientChannel);
+        }
+        clientChannel.configureBlocking(false);
+        String info = "服务端你好!!";
+        byteBuffer.clear();
+        byteBuffer.put(info.getBytes("UTF-8"));
+        byteBuffer.flip();
+        clientChannel.write(byteBuffer);
+        clientChannel.register(key.selector(), SelectionKey.OP_READ);
+        //clientChannel.close();
     }
 
-    // 客户端测试
+    public void doRead(SelectionKey key) throws IOException {
+        SocketChannel clientChannel = (SocketChannel) key.channel();
+        ByteBuffer byteBuffer = ByteBuffer.allocate(BUF_SIZE);
+        long bytesRead = clientChannel.read(byteBuffer);
+        while (bytesRead > 0) {
+            byteBuffer.flip();
+
+            byte[] data = new byte[byteBuffer.remaining()];
+            byteBuffer.get(data, 0, data.length);
+
+            String info = new String(data).trim();
+            System.out.println("Recv：" + info);
+
+            byteBuffer.clear();
+            bytesRead = clientChannel.read(byteBuffer);
+        }
+
+        if (bytesRead == -1 || bytesRead == 0) {
+            ByteBuffer outBuffer = ByteBuffer.wrap(new String("hello...").getBytes());
+            clientChannel.write(outBuffer);
+
+            clientChannel.close();
+        }
+    }
+
     public static void main(String[] args) throws IOException {
-        NIOClient nioClient = new NIOClient();
-        nioClient.initClient("127.0.0.1", 8000);
-        nioClient.listen();
+        NIOClient client = new NIOClient();
+        client.initClient();
     }
 }
