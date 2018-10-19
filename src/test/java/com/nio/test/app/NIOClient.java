@@ -78,9 +78,9 @@ public class NIOClient {
         if (bytesRead == -1 || bytesRead == 0) {
             ByteBuffer outBuffer = ByteBuffer.wrap(new String("hello...").getBytes());
             clientChannel.write(outBuffer);
-
-            clientChannel.close();
         }
+
+        clientChannel.close();
     }
 
     public static void main(String[] args) throws IOException {

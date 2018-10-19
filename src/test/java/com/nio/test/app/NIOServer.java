@@ -31,6 +31,12 @@ public class NIOServer {
 
         //将上述的通道管理器和通道绑定，并为该通道注册OP_ACCEPT事件
         //注册事件后，当该事件到达时，selector.select()会返回（一个key），如果该事件没到达selector.select()会一直阻塞
+
+        //SelectionKey.OP_ACCEPT:连接可接受操作,仅ServerSocketChannel支持
+        //SelectionKey.OP_CONNECT:连接操作,Client端支持的一种操作
+        //SelectionKey.OP_READ —— 读就绪事件，表示通道中已经有了可读的数据，可以执行读操作了（通道目前有数据，可以进行读操作了）
+        //SelectionKey.OP_WRITE —— 写就绪事件，表示已经可以向通道写数据了（通道目前可以用于写操作）
+
         SelectionKey selectionKey = channel.register(selector, SelectionKey.OP_ACCEPT);
 
         System.out.println("Wait...");
