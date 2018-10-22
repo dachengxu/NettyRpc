@@ -75,7 +75,7 @@ public class RpcServer implements ApplicationContextAware, InitializingBean {
                 logger.info("Server started on port {}", port);
     
                 if (serviceRegistry != null) {
-                    serviceRegistry.register(serverAddress);
+                    serviceRegistry.register(serverAddress);//发布netty-server地址
                 }
     
                 future.channel().closeFuture().sync();
@@ -137,7 +137,7 @@ public class RpcDecoder extends ByteToMessageDecoder {
 ```
 
 ####RpcHandler实现具体方法调用
-handlerMap是RpcServer中获取到的实现类Map, handle方法通过反射调用具体方法，这里使用了线程池．
+handlerMap是RpcServer中获取到的实现类Map, handle方法通过反射调用具体方法，这里使用了线程池异步处理rpc请求．
 
 ```java
 public class RpcHandler extends SimpleChannelInboundHandler<RpcRequest> {
@@ -149,7 +149,7 @@ public class RpcHandler extends SimpleChannelInboundHandler<RpcRequest> {
 
     @Override
     public void channelRead0(final ChannelHandlerContext ctx,final RpcRequest request) throws Exception {
-        RpcServer.submit(new Runnable() {
+        RpcServer.submit(new Runnable() {//使用新线程，异步处理rpc请求
             @Override
             public void run() {
                 logger.debug("Receive request " + request.getRequestId());
@@ -206,7 +206,11 @@ public class RpcHandler extends SimpleChannelInboundHandler<RpcRequest> {
 
 
 ##Client
-示例代码
+
+示例代码如下：
+1, 首先新建ServiceDiscovery实例，构造函数中会进行服务发现
+2, 新建RpcClient，调用createAsync新建一个代理；
+3, 通过代理发起异步rpc请求
 ```java
 public class PersonCallbackTest {
     public static void main(String[] args) {
@@ -257,7 +261,7 @@ public class PersonCallbackTest {
         ServiceDiscovery serviceDiscovery = new ServiceDiscovery("127.0.0.1:2181");//127.0.0.1:2181为zk的地址
 
 
-ServiceDiscovery构造方法中调用connectServer, watchNode方法
+ServiceDiscovery构造方法中调用　connectServer　和　watchNode方法
 ```java
 public class ServiceDiscovery {
 
@@ -274,6 +278,7 @@ public class ServiceDiscovery {
 connectServer用于发起ZooKeeper连接，直到连接成功后返回
 ```java
 public class ServiceDiscovery {
+    private CountDownLatch latch = new CountDownLatch(1);
     private ZooKeeper connectServer() {
         ZooKeeper zk = null;
         try {
@@ -281,7 +286,7 @@ public class ServiceDiscovery {
                 @Override
                 public void process(WatchedEvent event) {
                     if (event.getState() == Event.KeeperState.SyncConnected) {
-                        latch.countDown();
+                        latch.countDown();//连接成功
                     }
                 }
             });
@@ -479,6 +484,7 @@ public class RpcClient {
     public static <T> IAsyncObjectProxy createAsync(Class<T> interfaceClass) {
         return new ObjectProxy<T>(interfaceClass);
     }
+}
 ```
 
 通过client发送rpc调用
@@ -493,7 +499,7 @@ public class ObjectProxy<T> implements InvocationHandler, IAsyncObjectProxy {
     public RPCFuture call(String funcName, Object... args) {
         RpcClientHandler handler = ConnectManage.getInstance().chooseHandler();
         RpcRequest request = createRequest(this.clazz.getName(), funcName, args);
-        RPCFuture rpcFuture = handler.sendRequest(request);
+        RPCFuture rpcFuture = handler.sendRequest(request);//发送rpc请求
         return rpcFuture;
     }}
 ```
@@ -561,14 +567,14 @@ public class RpcClientHandler extends SimpleChannelInboundHandler<RpcResponse> {
         RPCFuture rpcFuture = pendingRPC.get(requestId);
         if (rpcFuture != null) {
             pendingRPC.remove(requestId);
-            rpcFuture.done(response);
+            rpcFuture.done(response);//保存结果
         }
     }
 
     public RPCFuture sendRequest(RpcRequest request) {
         final CountDownLatch latch = new CountDownLatch(1);
         RPCFuture rpcFuture = new RPCFuture(request);
-        pendingRPC.put(request.getRequestId(), rpcFuture);
+        pendingRPC.put(request.getRequestId(), rpcFuture);//根据requestId保存
         channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) {
