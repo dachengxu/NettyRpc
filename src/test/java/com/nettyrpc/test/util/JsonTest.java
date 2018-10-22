@@ -7,7 +7,6 @@ import com.nettyrpc.protocol.SerializationUtil;
 import com.nettyrpc.test.client.Person;
 import com.nettyrpc.test.server.HelloServiceImpl;
 
-import java.io.IOException;
 import java.util.UUID;
 
 /**
@@ -15,6 +14,11 @@ import java.util.UUID;
  */
 public class JsonTest {
     public static void main(String[] args){
+        //test01();
+        test02();
+    }
+
+    private static void test01() {
         RpcResponse response = new RpcResponse();
         response.setRequestId(UUID.randomUUID().toString());
         response.setError("Error msg");
@@ -28,10 +32,13 @@ public class JsonTest {
 
         RpcResponse resp = (RpcResponse)JsonUtil.deserialize(datas,RpcResponse.class);
         System.out.println(resp.getRequestId());
+
+        RpcResponse resp2 = SerializationUtil.deserialize(datas2, RpcResponse.class);
+        System.out.println(resp2.getRequestId());
     }
 
 
-    private static void TestJsonSerialize(){
+    private static void test02(){
         RpcRequest request = new RpcRequest();
         request.setClassName(HelloServiceImpl.class.getName());
         request.setMethodName(HelloServiceImpl.class.getDeclaredMethods()[0].getName());
@@ -48,6 +55,9 @@ public class JsonTest {
 
         RpcRequest req = (RpcRequest)JsonUtil.deserialize(datas,RpcRequest.class);
         System.out.println(req.getRequestId());
+
+        RpcRequest resp2 = SerializationUtil.deserialize(datas2, RpcRequest.class);
+        System.out.println(resp2.getRequestId());
     }
 
 }
