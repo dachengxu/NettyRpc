@@ -2,6 +2,7 @@
 ## Java NIO
 ref: 
 https://mp.weixin.qq.com/s/c9tkrokcDQR375kiwCeV9w?
+
 http://ifeve.com/java-nio-all/
 
 NIO主要有三大核心部分：Channel(通道)，Buffer(缓冲区), Selector。传统IO基于字节流和字符流进行操作，而NIO基于Channel和Buffer(缓冲区)进行操作，数据总是从通道读取到缓冲区中，或者从缓冲区写入到通道中。Selector(选择区)用于监听多个通道的事件（比如：连接打开，数据到达）。因此，单个线程可以监听多个数据通道。
@@ -30,6 +31,37 @@ NIO中的关键Buffer实现有：ByteBuffer, CharBuffer, DoubleBuffer, FloatBuff
 ### Selector
 
 Selector运行单线程处理多个Channel，如果你的应用打开了多个通道，但每个连接的流量都很低，使用Selector就会很方便。例如在一个聊天服务器中。要使用Selector, 得向Selector注册Channel，然后调用它的select()方法。这个方法会一直阻塞到某个注册的通道有事件就绪。一旦这个方法返回，线程就可以处理这些事件，事件的例子有如新的连接进来、数据接收等。
+
+#### 创建选择器
+通过 Selector.open()方法, 我们可以创建一个选择器:
+
+    Selector selector = Selector.open();
+    
+将 Channel 注册到选择器中
+为了使用选择器管理 Channel, 我们需要将 Channel 注册到选择器中:
+
+    channel.configureBlocking(false);
+    SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
+    
+注意, 如果一个 Channel 要注册到 Selector 中, 那么这个 Channel 必须是**非阻塞**的, 即channel.configureBlocking(false);
+>因为 Channel 必须要是非阻塞的, 因此 FileChannel 是不能够使用选择器的, 因为 FileChannel 都是阻塞的.
+
+注意到, 在使用 Channel.register()方法时, 第二个参数指定了我们对 Channel 的什么类型的事件感兴趣, 这些事件有:
+
+Connect, 即连接事件(TCP 连接), 对应于SelectionKey.OP_CONNECT
+Accept, 即确认事件, 对应于SelectionKey.OP_ACCEPT
+Read, 即读事件, 对应于SelectionKey.OP_READ, 表示 buffer 可读.
+Write, 即写事件, 对应于SelectionKey.OP_WRITE, 表示 buffer 可写.
+
+一个 Channel发出一个事件也可以称为 对于某个事件, Channel 准备好了. 因此一个 Channel 成功连接到了另一个服务器也可以被称为 connect ready.
+我们可以使用或运算|来组合多个事件, 例如:
+
+int interestSet = SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+注意, 一个 Channel 仅仅可以被注册到一个 Selector 一次, 如果将 Channel 注册到 Selector 多次, 那么其实就是相当于更新 SelectionKey 的 interest set. 例如:
+
+channel.register(selector, SelectionKey.OP_READ);
+channel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+上面的 channel 注册到同一个 Selector 两次了, 那么第二次的注册其实就是相当于更新这个 Channel 的 interest set 为 SelectionKey.OP_READ | SelectionKey.OP_WRITE.
 
 ### 示例：　FileChannel
 
