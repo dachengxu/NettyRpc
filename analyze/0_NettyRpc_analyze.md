@@ -91,13 +91,18 @@ public class RpcServer implements ApplicationContextAware, InitializingBean {
 3) lengthAdjustment = 0；//添加到长度字段的补偿值
 4) initialBytesToStrip = 0。//从解码帧中第一次去除的字节数
 
-因此，rpc数据包格式为： 4字节标识rpc消息长度+rpc消息
+因此，rpc数据包解码后格式为： 4字节标识rpc消息长度+rpc消息
 
     　     +++++++++++++++++++++++++++++++++++++
-         |           |                         |
+         |   Length  |        Content          |
           ++++++++++++++++++++++++++++++++++++++
 https://blog.csdn.net/u010853261/article/details/55803933
 
+Netty提供了多个解码器，可以进行分包的操作，分别是： 
+* LineBasedFrameDecoder (回车换行解码器)
+* DelimiterBasedFrameDecoder（分隔符解码器，用户可以指定消息结束的分隔符） 
+* FixedLengthFrameDecoder（使用定长的报文来分包） 
+* LengthFieldBasedFrameDecoder　（基于长度解码）
 
 #### RpcDecoder用于解包
 把rpc消息返序列化成RpcRequest实例．
@@ -208,9 +213,9 @@ public class RpcHandler extends SimpleChannelInboundHandler<RpcRequest> {
 ##Client
 
 示例代码如下：
-1, 首先新建ServiceDiscovery实例，构造函数中会进行服务发现
-2, 新建RpcClient，调用createAsync新建一个代理；
-3, 通过代理发起异步rpc请求
+1) 首先新建ServiceDiscovery实例，构造函数中会进行服务发现
+2) 新建RpcClient，调用createAsync新建一个代理；
+3) 通过代理发起异步rpc请求
 ```java
 public class PersonCallbackTest {
     public static void main(String[] args) {
